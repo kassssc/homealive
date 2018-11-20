@@ -3,23 +3,23 @@ using Microsoft.Gestures.Endpoint;
 using Microsoft.Gestures;
 using System.Threading.Tasks;
 using System.Linq;
+using home_alive;
 
 namespace ConsoleManaged
 {
     class Program
     {
         private static GesturesServiceEndpoint _gesturesService;
-        private static Gesture index_gesture;
-        private static Gesture twoFingers_gesture;
-        private static Gesture ThreeFingers_gesture;
-        private static Gesture FourFingers_gesture;
-        private static Gesture FiveFingers_gesture;
-
+        private static Gesture oneFingerGesture;
+        private static Gesture twoFingerGesture;
+        private static Gesture threeFingerGesture;
+        private static Gesture fourFingerGesture;
+        private static Gesture fiveFingerGesture;
 
         static void Main(string[] args)
-        {       
+        {
             Console.Title = "GesturesServiceStatus[Initializing]";
-            Console.WriteLine("Execute one of the following gestures: Like, Drop-the-Mic, Rotate-Right ! press 'ctrl+c' to exit");
+            Console.WriteLine("Execute one of the following gestures: closedFist->oneFinger, twoFingers, threeFingers, fourFingers, fiveFingers\npress 'ctrl+c' to exit");
 
             // One can optionally pass the hostname/IP address where the gestures service is hosted
             var gesturesServiceHostName = !args.Any() ? "localhost" : args[0];
@@ -30,102 +30,102 @@ namespace ConsoleManaged
         private static async Task RegisterGestures(string gesturesServiceHostName)
         {
             // Step 1: Connect to Microsoft Gestures service            
-            _gesturesService = GesturesServiceEndpointFactory.Create(gesturesServiceHostName);            
-            _gesturesService.StatusChanged += (s, arg) => Console.Title = $"GesturesServiceStatus [{arg.Status}]";            
+            _gesturesService = GesturesServiceEndpointFactory.Create(gesturesServiceHostName);
+            _gesturesService.StatusChanged += (s, arg) => Console.Title = $"GesturesServiceStatus [{arg.Status}]";
             await _gesturesService.ConnectAsync();
 
             // Step 2: Define bunch of custom Gestures, each detection of the gesture will emit some message into the console
-            await RegisterIndexGesture();
-            await RegisterTwoFingersGesture();
-            await RegisterThreeFingersGesture();
-            await RegisterFourFingersGesture();
-            await RegisterFiveFingersGesture();
-
-
+            await RegisterOneFingerGesture();
+            await RegisterTwoFingerGesture();
+            await RegisterThreeFingerGesture();
+            await RegisterFourFingerGesture();
+            await RegisterFiveFingerGesture();
         }
 
-        private static async Task RegisterIndexGesture()
+        private static async Task RegisterOneFingerGesture()
         {
-            // Start with defining the first pose, ...
-            var closed_fist = new HandPose("ClosedFist", new FingerPose(new AllFingersContext(), FingerFlexion.Folded));
-            var index = new HandPose("Index", new FingerPose(new[] { Finger.Index }, FingerFlexion.Open, PoseDirection.Forward),
-                                               new FingerPose(new[] { Finger.Thumb,Finger.Middle,Finger.Ring,Finger.Pinky }, FingerFlexion.Folded));
+            // Start with defining the poses:
+            var closedFist = new HandPose("ClosedFist", new FingerPose(new AllFingersContext(), FingerFlexion.Folded));
+            var oneFinger = new HandPose("OneFinger", new FingerPose(new[] { Finger.Index }, FingerFlexion.Open, PoseDirection.Forward),
+                                              new FingerPose(new[] { Finger.Thumb, Finger.Middle, Finger.Ring, Finger.Pinky }, FingerFlexion.Folded));
 
-            // ... finally define the gesture using the hand pose objects defined above forming a simple state machine: hold -> rotate
-            index_gesture = new Gesture("Index", closed_fist, index);
-            index_gesture.Triggered += (s, e) => OnGestureDetected(s, e, ConsoleColor.Yellow);
+            // Then define the gesture using the hand pose objects defined above forming a simple state machine: closedFist -> oneFinger
+            oneFingerGesture = new Gesture("OneFinger", closedFist, oneFinger);
+            oneFingerGesture.Triggered += (s, e) => OnGestureDetected(s, e, ConsoleColor.Yellow);
 
             // Step 3: Register the gesture             
             // Registering the like gesture _globally_ (i.e. isGlobal:true), by global registration we mean this gesture will be 
             // detected even it was initiated not by this application or if the this application isn't in focus
-           await _gesturesService.RegisterGesture(index_gesture, isGlobal: true);
+            await _gesturesService.RegisterGesture(oneFingerGesture, isGlobal: true);
         }
 
-        private static async Task RegisterTwoFingersGesture()
+        private static async Task RegisterTwoFingerGesture()
         {
-            // Start with defining the first pose, ...
-            var closed_fist = new HandPose("ClosedFist", new FingerPose(new AllFingersContext(), FingerFlexion.Folded));
+            // Start with defining the poses:
+            var closedFist = new HandPose("ClosedFist", new FingerPose(new AllFingersContext(), FingerFlexion.Folded));
             var twoFingers = new HandPose("TwoFingers", new FingerPose(new[] { Finger.Index, Finger.Middle }, FingerFlexion.Open, PoseDirection.Forward),
-                            new FingerPose(new[] { Finger.Thumb, Finger.Ring, Finger.Pinky }, FingerFlexion.Folded));
+                             new FingerPose(new[] { Finger.Thumb, Finger.Ring, Finger.Pinky }, FingerFlexion.Folded));
 
-            // ... finally define the gesture using the hand pose objects defined above forming a simple state machine: hold -> rotate*/
-            twoFingers_gesture = new Gesture("TwoFingers", closed_fist, twoFingers);
-            twoFingers_gesture.Triggered += (s, e) => OnGestureDetected(s, e, ConsoleColor.Yellow);
+            // Then define the gesture using the hand pose objects defined above forming a simple state machine: closedFist -> twoFingers
+            twoFingerGesture = new Gesture("TwoFingers", closedFist, twoFingers);
+            twoFingerGesture.Triggered += (s, e) => OnGestureDetected(s, e, ConsoleColor.Blue);
 
             // Step 3: Register the gesture             
             // Registering the like gesture _globally_ (i.e. isGlobal:true), by global registration we mean this gesture will be 
             // detected even it was initiated not by this application or if the this application isn't in focus
-            await _gesturesService.RegisterGesture(twoFingers_gesture, isGlobal: true);
+            await _gesturesService.RegisterGesture(twoFingerGesture, isGlobal: true);
         }
 
-        private static async Task RegisterThreeFingersGesture()
+        private static async Task RegisterThreeFingerGesture()
         {
-            // Start with defining the first pose, ...
-            var closed_fist = new HandPose("ClosedFist", new FingerPose(new AllFingersContext(), FingerFlexion.Folded));
-            var ThreeFingers = new HandPose("ThreeFingers", new FingerPose(new[] { Finger.Index, Finger.Middle ,Finger.Ring}, FingerFlexion.Open, PoseDirection.Forward),
-                            new FingerPose(new[] { Finger.Thumb, Finger.Pinky }, FingerFlexion.Folded));
+            // Start with defining the poses:
+            var closedFist = new HandPose("ClosedFist", new FingerPose(new AllFingersContext(), FingerFlexion.Folded));
+            var threeFingers = new HandPose("ThreeFingers", new FingerPose(new[] { Finger.Index, Finger.Middle, Finger.Ring }, FingerFlexion.Open, PoseDirection.Forward),
+                        	   new FingerPose(new[] { Finger.Thumb, Finger.Pinky }, FingerFlexion.Folded));
 
-            // ... finally define the gesture using the hand pose objects defined above forming a simple state machine: hold -> rotate*/
-            ThreeFingers_gesture = new Gesture("ThreeFingers", closed_fist, ThreeFingers);
-            ThreeFingers_gesture.Triggered += (s, e) => OnGestureDetected(s, e, ConsoleColor.Yellow);
+            // Then define the gesture using the hand pose objects defined above forming a simple state machine: closedFist -> threeFingers
+            threeFingerGesture = new Gesture("ThreeFingers", closedFist, threeFingers);
+            threeFingerGesture.Triggered += (s, e) => OnGestureDetected(s, e, ConsoleColor.Cyan);
 
             // Step 3: Register the gesture             
             // Registering the like gesture _globally_ (i.e. isGlobal:true), by global registration we mean this gesture will be 
             // detected even it was initiated not by this application or if the this application isn't in focus
-            await _gesturesService.RegisterGesture(ThreeFingers_gesture, isGlobal: true);
+            await _gesturesService.RegisterGesture(threeFingerGesture, isGlobal: true);
         }
 
-        private static async Task RegisterFourFingersGesture()
+        private static async Task RegisterFourFingerGesture()
         {
-            // Start with defining the first pose, ...
-            var closed_fist = new HandPose("ClosedFist", new FingerPose(new AllFingersContext(), FingerFlexion.Folded));
-            var FourFingers = new HandPose("FourFingers", new FingerPose(new[] { Finger.Index, Finger.Middle, Finger.Ring, Finger.Pinky }, FingerFlexion.Open, PoseDirection.Forward),
-                            new FingerPose(new[] { Finger.Thumb }, FingerFlexion.Folded));
+            // Start with defining the poses:
+            var closedFist = new HandPose("ClosedFist", new FingerPose(new AllFingersContext(), FingerFlexion.Folded));
+            var fourFingers = new HandPose("FourFingers", new FingerPose(new[] { Finger.Index, Finger.Middle, Finger.Ring, Finger.Pinky }, FingerFlexion.Open, PoseDirection.Forward),
+                              new FingerPose(new[] { Finger.Thumb }, FingerFlexion.Folded));
 
-            // ... finally define the gesture using the hand pose objects defined above forming a simple state machine: hold -> rotate*/
-            FourFingers_gesture = new Gesture("FourFingers", closed_fist, FourFingers);
-            FourFingers_gesture.Triggered += (s, e) => OnGestureDetected(s, e, ConsoleColor.Yellow);
+            // Then define the gesture using the hand pose objects defined above forming a simple state machine: closedFist -> fourFingers
+            fourFingerGesture = new Gesture("FourFingers", closedFist, fourFingers);
+            fourFingerGesture.Triggered += (s, e) => OnGestureDetected(s, e, ConsoleColor.Green);
 
             // Step 3: Register the gesture             
             // Registering the like gesture _globally_ (i.e. isGlobal:true), by global registration we mean this gesture will be 
             // detected even it was initiated not by this application or if the this application isn't in focus
-            await _gesturesService.RegisterGesture(FourFingers_gesture, isGlobal: true);
+            await _gesturesService.RegisterGesture(fourFingerGesture, isGlobal: true);
         }
 
-        private static async Task RegisterFiveFingersGesture()
+        private static async Task RegisterFiveFingerGesture()
         {
-            // Start with defining the first pose, ...
-            var closed_fist = new HandPose("ClosedFist", new FingerPose(new AllFingersContext(), FingerFlexion.Folded));
-            var FiveFingers = new HandPose("FiveFingers", new FingerPose(new[] { Finger.Index, Finger.Middle, Finger.Ring, Finger.Pinky, Finger.Thumb }, FingerFlexion.Open, PoseDirection.Forward));
+            // Start with defining the poses:
+            var closedFist = new HandPose("ClosedFist", new FingerPose(new AllFingersContext(), FingerFlexion.Folded));
+            var fiveFingers = new HandPose("FiveFingers", new FingerPose(new[] { Finger.Index, Finger.Middle, Finger.Ring, Finger.Pinky, Finger.Thumb },
+            								 FingerFlexion.Open, PoseDirection.Forward));
 
-            // ... finally define the gesture using the hand pose objects defined above forming a simple state machine: hold -> rotate*/
-            FiveFingers_gesture = new Gesture("FiveFingers", closed_fist, FiveFingers);
-            FiveFingers_gesture.Triggered += (s, e) => OnGestureDetected(s, e, ConsoleColor.Yellow);
+            // Then define the gesture using the hand pose objects defined above forming a simple state machine: closedFist -> fiveFingers
+            fiveFingerGesture = new Gesture("FiveFingers", closedFist, fiveFingers);
+            fiveFingerGesture.Triggered += (s, e) => OnGestureDetected(s, e, ConsoleColor.White);
+
 
             // Step 3: Register the gesture             
             // Registering the like gesture _globally_ (i.e. isGlobal:true), by global registration we mean this gesture will be 
             // detected even it was initiated not by this application or if the this application isn't in focus
-            await _gesturesService.RegisterGesture(FiveFingers_gesture, isGlobal: true);
+            await _gesturesService.RegisterGesture(fiveFingerGesture, isGlobal: true);
         }
 
         private static void OnGestureDetected(object sender, GestureSegmentTriggeredEventArgs args, ConsoleColor foregroundColor)
