@@ -3,7 +3,6 @@ using Microsoft.Gestures.Endpoint;
 using Microsoft.Gestures;
 using System.Threading.Tasks;
 using System.Linq;
-using home_alive;
 
 namespace ConsoleManaged
 {
@@ -130,12 +129,17 @@ namespace ConsoleManaged
 
         private static void OnGestureDetected(object sender, GestureSegmentTriggeredEventArgs args, ConsoleColor foregroundColor)
         {
-
+            LightListResponse response;
+            if (args.GestureSegment.Name == "OneFinger")
+                response = LifxAPI.Toggle("light1");
+            else if (args.GestureSegment.Name == "TwoFingers")
+                response = LifxAPI.Toggle("light2");
             Console.ForegroundColor = ConsoleColor.Red;
             Console.Write("Gesture detected! : ");
             Console.ForegroundColor = foregroundColor;
             Console.WriteLine(args.GestureSegment.Name);
             Console.ResetColor();
-        }
+
+        } 
     }
 }
