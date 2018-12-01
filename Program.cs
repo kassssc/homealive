@@ -243,7 +243,7 @@ namespace ConsoleManaged
 
 				private static bool IsValidGestureName(string name)
 				{
-					return gesturesList.IndexOf(name, value) != -1;
+					return gesturesList.IndexOf(name) != -1;
 				}
 		}
 }
