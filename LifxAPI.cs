@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -7,7 +7,7 @@ using Newtonsoft.Json;
 using System.Collections.Generic;
 using System.Text;
 
-namespace ConsoleManaged
+namespace home_alive
 {
     public class LightListResponse
     {
@@ -21,13 +21,20 @@ namespace ConsoleManaged
         public int Brightness { get; set; }
     }
 
-    public static class LifxAPI
+    public class LifxAPI
     {
-        private static HttpClient client = new HttpClient();
+        private static readonly HttpClient client = new HttpClient();
 
-        private const string BaseAPI = "http://localhost:6969";
-        private const string LightStatusAPI = "/lifx/status/";
-        private const string CommandAPI = "/lifx/";
+        private static readonly string BaseAPI = "http://localhost:6969";
+        private static readonly string LightStatusAPI = "/lifx/status/";
+        private static readonly string CommandAPI = "/lifx/";
+
+        public string Label { get; set; }
+
+        public LifxAPI(string label)
+        {
+            this.Label = label;
+        }
 
         public async static Task<LightListResponse> APIGet()
         {
@@ -41,14 +48,10 @@ namespace ConsoleManaged
         {
             var json = JsonConvert.SerializeObject(payload);
             var data = new StringContent(json, Encoding.UTF8, "application/json");
-            var response = await client.PostAsync(BaseAPI + CommandAPI, data).ConfigureAwait(false);
-            //response.EnsureSuccessStatusCode();
-            var responseString = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-            Console.WriteLine(responseString);
-            //System.Timers.Timer timer = new System.Timers.Timer(250);
-            //timer.AutoReset = true;
-            //timer.Enabled = true;
-            return JsonConvert.DeserializeObject<LightListResponse>(responseString);
+            HttpResponseMessage response = await client.PostAsync(BaseAPI + CommandAPI, data).ConfigureAwait(false);
+            response.EnsureSuccessStatusCode();
+            string res = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+            return JsonConvert.DeserializeObject<LightListResponse>(res);
         }
 
         public static LightListResponse GetLightStatus()
@@ -74,55 +77,55 @@ namespace ConsoleManaged
             return APIPost(payload).Result;
         }
 
-        public static LightListResponse Toggle(string label)
+        public LightListResponse Toggle()
         {
             var payload = new Dictionary<string, string>
             {
-                {"light_label", label},
+                {"light_label", Label},
                 {"command", "toggle"}
             };
             return APIPost(payload).Result;
         }
 
-        public static LightListResponse TurnOn(string label)
+        public LightListResponse TurnOn()
         {
             var payload = new Dictionary<string, string>
             {
-                {"light_label", label},
+                {"light_label", Label},
                 {"command", "on"}
             };
             return APIPost(payload).Result;
         }
 
-        public static LightListResponse TurnOff(string label)
+        public LightListResponse TurnOff()
         {
             var payload = new Dictionary<string, string>
             {
-                {"light_label", label},
+                {"light_label", Label},
                 {"command", "off"}
             };
             return APIPost(payload).Result;
         }
 
-        public static LightListResponse BrightnessUp(string label)
+        public LightListResponse BrightnessUp()
         {
             var payload = new Dictionary<string, string>
             {
-                {"light_label", label},
+                {"light_label", Label},
                 {"command", "b+"}
             };
             return APIPost(payload).Result;
         }
 
-        public static LightListResponse BrightnessDown(string label)
+        public LightListResponse BrightnessDown()
         {
             var payload = new Dictionary<string, string>
             {
-                {"light_label", label},
+                {"light_label", Label},
                 {"command", "b-"}
             };
             return APIPost(payload).Result;
         }
     }
-    
+
 }
