@@ -1,8 +1,11 @@
-﻿using System;
+﻿using Microsoft.Gestures;
 using Microsoft.Gestures.Endpoint;
-using Microsoft.Gestures;
-using System.Threading.Tasks;
+using Microsoft.Gestures.Stock.HandPoses;
+using System;
+using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
+
 
 namespace ConsoleManaged
 {
@@ -14,21 +17,99 @@ namespace ConsoleManaged
         private static Gesture threeFingerGesture;
         private static Gesture fourFingerGesture;
         private static Gesture fiveFingerGesture;
+        private static Gesture rotateGestureUp1;
+        private static Gesture rotateGestureUp2;
+        private static Gesture rotateGestureDown1;
+        private static Gesture rotateGestureDown2;
+
+        private static string[] gesturesList =
+        {
+            "OneFinger",
+            "TwoFingers",
+            "ThreeFingers",
+            "FourFingers",
+            "FiveFingers",
+            "BrightnessIncrease",
+            "BrightnessIncreaseSecond"
+        };
+
+        private static readonly string dir = System.IO.Directory.GetCurrentDirectory() + "/";
+        private static readonly string configFileName = "config.homealive";
+        private static Dictionary<string, LifxAPI> lightAPIs = new Dictionary<string, LifxAPI>();
+
+        // Stores all the lights in our system
+        // Stores with light label as key and LifxAPI object as value
+        // Each light in the system will have its own LifxAPI object
+        private static Dictionary<string, LifxAPI> lights;
 
         static void Main(string[] args)
         {
+            if (!System.IO.File.Exists(dir + configFileName))
+            {
+                ConfigRoutine();
+            }
+            else
+            {
+                LoadConfig();
+            }
+
             Console.Title = "GesturesServiceStatus[Initializing]";
             Console.WriteLine("Execute one of the following gestures: closedFist->oneFinger, twoFingers, threeFingers, fourFingers, fiveFingers\npress 'ctrl+c' to exit");
-
+            PrintConfigInfo();
             // One can optionally pass the hostname/IP address where the gestures service is hosted
             var gesturesServiceHostName = !args.Any() ? "localhost" : args[0];
-            RegisterGestures(gesturesServiceHostName).Wait();
-            Console.ReadKey();
+            //RegisterGestures(gesturesServiceHostName).Wait();
+
+
+
+            while (true)
+            {
+                string userInput;
+                Console.Write("Enter a command - ");
+                userInput = Console.ReadLine();
+                string[] commandArray = userInput.Split(null);
+
+                if (userInput == "q")
+                {
+                    Environment.Exit(0);
+                }
+                if (userInput == "config" || userInput == "c")
+                {
+                    ConfigRoutine();
+                }
+                else if (userInput == "help" || userInput == "h")
+                {
+                    PrintConfigInfo();
+                }
+                else if (userInput == "status")
+                {
+                    LightListResponse response = LifxAPI.GetLightStatus();
+                }
+                else if (userInput == "start" || userInput == "s")
+                {
+                    Console.WriteLine("Gesture detection started, press 'esc' to stop");
+                    RegisterGestures(gesturesServiceHostName).Wait();
+
+                    ConsoleKeyInfo keyPressed;
+
+                    do {
+                        keyPressed = Console.ReadKey(true);
+                    } while (keyPressed.Key != ConsoleKey.Escape);
+
+                    _gesturesService.Disconnect();
+
+                }
+                else if (userInput == "stop")
+                {
+                    RegisterGestures(gesturesServiceHostName).Dispose();
+                }
+            }
+
         }
 
         private static async Task RegisterGestures(string gesturesServiceHostName)
         {
-            // Step 1: Connect to Microsoft Gestures service            
+            // Step 1: Connect to Microsoft Gestures service
             _gesturesService = GesturesServiceEndpointFactory.Create(gesturesServiceHostName);
             _gesturesService.StatusChanged += (s, arg) => Console.Title = $"GesturesServiceStatus [{arg.Status}]";
             await _gesturesService.ConnectAsync();
@@ -39,6 +120,10 @@ namespace ConsoleManaged
             await RegisterThreeFingerGesture();
             await RegisterFourFingerGesture();
             await RegisterFiveFingerGesture();
+            await RegisterRotateUp1Gesture();
+            await RegisterRotateUp2Gesture();
+            await RegisterRotateDown1Gesture();
+            await RegisterRotateDown2Gesture();
         }
 
         private static async Task RegisterOneFingerGesture()
@@ -52,8 +137,8 @@ namespace ConsoleManaged
             oneFingerGesture = new Gesture("OneFinger", closedFist, oneFinger);
             oneFingerGesture.Triggered += (s, e) => OnGestureDetected(s, e, ConsoleColor.Yellow);
 
-            // Step 3: Register the gesture             
-            // Registering the like gesture _globally_ (i.e. isGlobal:true), by global registration we mean this gesture will be 
+            // Step 3: Register the gesture
+            // Registering the like gesture _globally_ (i.e. isGlobal:true), by global registration we mean this gesture will be
             // detected even it was initiated not by this application or if the this application isn't in focus
             await _gesturesService.RegisterGesture(oneFingerGesture, isGlobal: true);
         }
@@ -69,8 +154,8 @@ namespace ConsoleManaged
             twoFingerGesture = new Gesture("TwoFingers", closedFist, twoFingers);
             twoFingerGesture.Triggered += (s, e) => OnGestureDetected(s, e, ConsoleColor.Blue);
 
-            // Step 3: Register the gesture             
-            // Registering the like gesture _globally_ (i.e. isGlobal:true), by global registration we mean this gesture will be 
+            // Step 3: Register the gesture
+            // Registering the like gesture _globally_ (i.e. isGlobal:true), by global registration we mean this gesture will be
             // detected even it was initiated not by this application or if the this application isn't in focus
             await _gesturesService.RegisterGesture(twoFingerGesture, isGlobal: true);
         }
@@ -80,14 +165,14 @@ namespace ConsoleManaged
             // Start with defining the poses:
             var closedFist = new HandPose("ClosedFist", new FingerPose(new AllFingersContext(), FingerFlexion.Folded));
             var threeFingers = new HandPose("ThreeFingers", new FingerPose(new[] { Finger.Index, Finger.Middle, Finger.Ring }, FingerFlexion.Open, PoseDirection.Forward),
-                        	   new FingerPose(new[] { Finger.Thumb, Finger.Pinky }, FingerFlexion.Folded));
+                             new FingerPose(new[] { Finger.Thumb, Finger.Pinky }, FingerFlexion.Folded));
 
             // Then define the gesture using the hand pose objects defined above forming a simple state machine: closedFist -> threeFingers
             threeFingerGesture = new Gesture("ThreeFingers", closedFist, threeFingers);
             threeFingerGesture.Triggered += (s, e) => OnGestureDetected(s, e, ConsoleColor.Cyan);
 
-            // Step 3: Register the gesture             
-            // Registering the like gesture _globally_ (i.e. isGlobal:true), by global registration we mean this gesture will be 
+            // Step 3: Register the gesture
+            // Registering the like gesture _globally_ (i.e. isGlobal:true), by global registration we mean this gesture will be
             // detected even it was initiated not by this application or if the this application isn't in focus
             await _gesturesService.RegisterGesture(threeFingerGesture, isGlobal: true);
         }
@@ -103,8 +188,8 @@ namespace ConsoleManaged
             fourFingerGesture = new Gesture("FourFingers", closedFist, fourFingers);
             fourFingerGesture.Triggered += (s, e) => OnGestureDetected(s, e, ConsoleColor.Green);
 
-            // Step 3: Register the gesture             
-            // Registering the like gesture _globally_ (i.e. isGlobal:true), by global registration we mean this gesture will be 
+            // Step 3: Register the gesture
+            // Registering the like gesture _globally_ (i.e. isGlobal:true), by global registration we mean this gesture will be
             // detected even it was initiated not by this application or if the this application isn't in focus
             await _gesturesService.RegisterGesture(fourFingerGesture, isGlobal: true);
         }
@@ -114,32 +199,189 @@ namespace ConsoleManaged
             // Start with defining the poses:
             var closedFist = new HandPose("ClosedFist", new FingerPose(new AllFingersContext(), FingerFlexion.Folded));
             var fiveFingers = new HandPose("FiveFingers", new FingerPose(new[] { Finger.Index, Finger.Middle, Finger.Ring, Finger.Pinky, Finger.Thumb },
-            								 FingerFlexion.Open, PoseDirection.Forward));
+                             FingerFlexion.Open, PoseDirection.Forward));
 
             // Then define the gesture using the hand pose objects defined above forming a simple state machine: closedFist -> fiveFingers
             fiveFingerGesture = new Gesture("FiveFingers", closedFist, fiveFingers);
             fiveFingerGesture.Triggered += (s, e) => OnGestureDetected(s, e, ConsoleColor.White);
 
 
-            // Step 3: Register the gesture             
-            // Registering the like gesture _globally_ (i.e. isGlobal:true), by global registration we mean this gesture will be 
+            // Step 3: Register the gesture
+            // Registering the like gesture _globally_ (i.e. isGlobal:true), by global registration we mean this gesture will be
             // detected even it was initiated not by this application or if the this application isn't in focus
             await _gesturesService.RegisterGesture(fiveFingerGesture, isGlobal: true);
         }
 
-        private static void OnGestureDetected(object sender, GestureSegmentTriggeredEventArgs args, ConsoleColor foregroundColor)
-        {
-            LightListResponse response;
-            if (args.GestureSegment.Name == "OneFinger")
-                response = LifxAPI.Toggle("light1");
-            else if (args.GestureSegment.Name == "TwoFingers")
-                response = LifxAPI.Toggle("light2");
-            Console.ForegroundColor = ConsoleColor.Red;
-            Console.Write("Gesture detected! : ");
-            Console.ForegroundColor = foregroundColor;
-            Console.WriteLine(args.GestureSegment.Name);
-            Console.ResetColor();
 
-        } 
-    }
+        private static async Task RegisterRotateUp1Gesture()
+        {
+            // Start with defining the first pose, ...
+            var hold = new HandPose("Hold", new FingerPose(new[] { Finger.Thumb, Finger.Index }, FingerFlexion.Open, PoseDirection.Forward),
+                                            new FingertipDistanceRelation(Finger.Index, RelativeDistance.NotTouching, Finger.Thumb),
+                                            new FingerPose(new[] { Finger.Middle, Finger.Ring, Finger.Pinky }, FingerFlexion.Folded),
+                                            new FingertipPlacementRelation(Finger.Index, RelativePlacement.Above, Finger.Thumb));
+            // ... define the second pose, ...
+            var rotate = new HandPose("Rotate", new FingerPose(new[] { Finger.Thumb, Finger.Index }, FingerFlexion.Open, PoseDirection.Forward),
+                                                new FingertipDistanceRelation(Finger.Index, RelativeDistance.NotTouching, Finger.Thumb),
+                                                new FingerPose(new[] { Finger.Middle, Finger.Ring, Finger.Pinky }, FingerFlexion.Folded),
+                                                new FingertipPlacementRelation(Finger.Index, RelativePlacement.Right, Finger.Thumb));//change to left
+
+            // ... finally define the gesture using the hand pose objects defined above forming a simple state machine: hold -> rotate
+            rotateGestureUp1 = new Gesture("RotateUp1", hold, rotate);
+            rotateGestureUp1.Triggered += (s, e) => OnGestureDetected(s, e, ConsoleColor.Yellow);
+
+            // Step 3: Register the gesture             
+            // Registering the like gesture _globally_ (i.e. isGlobal:true), by global registration we mean this gesture will be 
+            // detected even it was initiated not by this application or if the this application isn't in focus
+            await _gesturesService.RegisterGesture(rotateGestureUp1, isGlobal: true);
+        }
+
+        private static async Task RegisterRotateDown1Gesture()
+        {
+            // Start with defining the first pose, ...
+            var hold = new HandPose("Hold", new FingerPose(new[] { Finger.Thumb, Finger.Index }, FingerFlexion.Open, PoseDirection.Forward),
+                                            new FingertipDistanceRelation(Finger.Index, RelativeDistance.NotTouching, Finger.Thumb),
+                                            new FingerPose(new[] { Finger.Middle, Finger.Ring, Finger.Pinky }, FingerFlexion.Folded),
+                                            new FingertipPlacementRelation(Finger.Index, RelativePlacement.Above, Finger.Thumb));
+            // define the second pose, ...
+            var rotate = new HandPose("Rotate1", new FingerPose(new[] { Finger.Thumb, Finger.Index }, FingerFlexion.Open, PoseDirection.Forward),
+                                                new FingertipDistanceRelation(Finger.Index, RelativeDistance.NotTouching, Finger.Thumb),
+                                                new FingerPose(new[] { Finger.Middle, Finger.Ring, Finger.Pinky }, FingerFlexion.Folded),
+                                                new FingertipPlacementRelation(Finger.Index, RelativePlacement.Left, Finger.Thumb));//change to left
+
+            // finally define the gesture using the hand pose objects defined above forming a simple state machine: hold -> rotate
+            rotateGestureDown1 = new Gesture("RotateDown1", hold, rotate);
+            rotateGestureDown1.Triggered += (s, e) => OnGestureDetected(s, e, ConsoleColor.Yellow);
+
+            // Step 3: Register the gesture             
+            // Registering the like gesture _globally_ (i.e. isGlobal:true), by global registration we mean this gesture will be 
+            // detected even it was initiated not by this application or if the this application isn't in focus
+            await _gesturesService.RegisterGesture(rotateGestureDown1, isGlobal: true);
+        }
+
+        private static async Task RegisterRotateUp2Gesture()
+        {
+            // Start with defining the first pose, ...
+            var hold = new HandPose("Hold", new FingerPose(new[] { Finger.Thumb, Finger.Index, Finger.Middle }, FingerFlexion.Open, PoseDirection.Forward),
+                                            new FingertipDistanceRelation(Finger.Index, RelativeDistance.NotTouching, Finger.Thumb),
+                                            new FingertipPlacementRelation(Finger.Index, RelativePlacement.Above, Finger.Thumb),
+                                            new FingertipPlacementRelation(Finger.Middle, RelativePlacement.Above, Finger.Thumb));
+            // ... define the second pose, ...
+            var rotate = new HandPose("Rotate2", new FingerPose(new[] { Finger.Thumb, Finger.Index }, FingerFlexion.Open, PoseDirection.Forward),
+                                                new FingertipDistanceRelation(Finger.Index, RelativeDistance.NotTouching, Finger.Thumb),
+                                                new FingertipPlacementRelation(Finger.Index, RelativePlacement.Right, Finger.Thumb),
+                                                new FingertipPlacementRelation(Finger.Middle, RelativePlacement.Right, Finger.Thumb));
+
+            // ... finally define the gesture using the hand pose objects defined above forming a simple state machine: hold -> rotate
+            rotateGestureUp2 = new Gesture("RotateUp2", hold, rotate);
+            rotateGestureUp2.Triggered += (s, e) => OnGestureDetected(s, e, ConsoleColor.Yellow);
+
+            // Step 3: Register the gesture             
+            // Registering the like gesture _globally_ (i.e. isGlobal:true), by global registration we mean this gesture will be 
+            // detected even it was initiated not by this application or if the this application isn't in focus
+            await _gesturesService.RegisterGesture(rotateGestureUp2, isGlobal: true);
+        }
+
+        private static async Task RegisterRotateDown2Gesture()
+        {
+            // Start with defining the first pose, ...
+            var hold = new HandPose("Hold", new FingerPose(new[] { Finger.Thumb, Finger.Index, Finger.Middle }, FingerFlexion.Open, PoseDirection.Forward),
+                                            new FingertipDistanceRelation(Finger.Index, RelativeDistance.NotTouching, Finger.Thumb),
+                                            new FingertipPlacementRelation(Finger.Index, RelativePlacement.Above, Finger.Thumb),
+                                            new FingertipPlacementRelation(Finger.Middle, RelativePlacement.Above, Finger.Thumb));
+            // ... define the second pose, ...
+            var rotate = new HandPose("Rotate2", new FingerPose(new[] { Finger.Thumb, Finger.Index }, FingerFlexion.Open, PoseDirection.Forward),
+                                                new FingertipDistanceRelation(Finger.Index, RelativeDistance.NotTouching, Finger.Thumb),
+                                                new FingertipPlacementRelation(Finger.Index, RelativePlacement.Left, Finger.Thumb),
+                                                new FingertipPlacementRelation(Finger.Middle, RelativePlacement.Left, Finger.Thumb));
+
+            // ... finally define the gesture using the hand pose objects defined above forming a simple state machine: hold -> rotate
+            rotateGestureUp2 = new Gesture("RotateDown2", hold, rotate);
+            rotateGestureUp2.Triggered += (s, e) => OnGestureDetected(s, e, ConsoleColor.Yellow);
+
+            // Step 3: Register the gesture             
+            // Registering the like gesture _globally_ (i.e. isGlobal:true), by global registration we mean this gesture will be 
+            // detected even it was initiated not by this application or if the this application isn't in focus
+            await _gesturesService.RegisterGesture(rotateGestureUp2, isGlobal: true);
+        }
+
+        private static void OnGestureDetected(object sender, GestureSegmentTriggeredEventArgs args, ConsoleColor foregroundColor)
+		{
+			LightListResponse response;
+
+			string gesture = args.GestureSegment.Name;
+            if (gesture == "RotateUp1"){
+                response = lightAPIs["Onefinger"].BrightnessUp();
+            }
+            else if (gesture == "RotateDown1") {
+                response = lightAPIs["Onefinger"].BrightnessDown();
+            }
+            else if (gesture == "RotateUp2") {
+                response = lightAPIs["TwoFingers"].BrightnessUp();
+            }
+            else if (gesture == "RotateDown2") {
+                response = lightAPIs["TwoFingers"].BrightnessDown();
+            }
+            else if (lightAPIs.ContainsKey(gesture))
+            {
+                response = lightAPIs[gesture].Toggle();
+            }
+
+			Console.ForegroundColor = ConsoleColor.Red;
+			Console.Write("Gesture detected! : ");
+			Console.ForegroundColor = foregroundColor;
+			Console.WriteLine(gesture);
+			Console.ResetColor();
+
+		}
+
+		private static void ConfigRoutine()
+		{
+			lightAPIs = new Dictionary<string, LifxAPI>();
+			List<Light> lights = LifxAPI.GetLightStatus().Results;
+			Console.WriteLine(lights.Count + " light(s) found");
+			Console.WriteLine("Assigning lights to gestures...");
+
+			string[] configFileLines = new string[lights.Count];
+			for (int i = 0; i < lights.Count; i++)
+			{
+				Console.Write("{0}\t to command: ", lights[i].Label);
+				string assignedGesture = Console.ReadLine();
+				while(!IsValidGestureName(assignedGesture))
+				{
+					Console.Write("Invalid gesture assignment, please try again: ");
+					assignedGesture = Console.ReadLine();
+				}
+				configFileLines[i] = lights[i].Label + "\t" + assignedGesture;
+
+			}
+			Console.WriteLine(dir + configFileName);
+			System.IO.File.WriteAllLines(dir + configFileName, configFileLines);
+			Console.WriteLine("Configuration Complete!");
+			LoadConfig();
+		}
+
+		private static void LoadConfig()
+		{
+			string[] configFileLines = System.IO.File.ReadAllLines(dir + configFileName);
+			foreach (string line in configFileLines)
+			{
+				string[] splitLine = line.Split("\t");
+				lightAPIs.Add(splitLine[1], new LifxAPI(splitLine[0]));
+			}
+		}
+
+		private static void PrintConfigInfo()
+		{
+			foreach (KeyValuePair<string, LifxAPI> lightConfig in lightAPIs)
+			{
+				Console.WriteLine("Toggle Command: {0}\tLight Label: {1}", lightConfig.Key, lightConfig.Value.Label);
+			}
+		}
+
+		private static bool IsValidGestureName(string name)
+		{
+            return Array.IndexOf(gesturesList, name) != -1;
+		}
+	}
 }
