@@ -7,7 +7,7 @@ using Newtonsoft.Json;
 using System.Collections.Generic;
 using System.Text;
 
-namespace HomeAlive
+namespace ConsoleManaged
 {
     public class LightListResponse
     {

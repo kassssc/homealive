@@ -7,7 +7,7 @@ using System.Linq;
 using System.Threading.Tasks;
 
 
-namespace HomeAlive
+namespace ConsoleManaged
 {
 	class Program
 	{
@@ -35,11 +35,12 @@ namespace HomeAlive
 		private static readonly string dir = System.IO.Directory.GetCurrentDirectory() + "/";
 		private static readonly string configFileName = "config.homealive";
 		private static Dictionary<string, LifxAPI> lightAPIs = new Dictionary<string, LifxAPI>();
+        private static string gesturesServiceHostName;
 
-		// Stores all the lights in our system
-		// Stores with light label as key and LifxAPI object as value
-		// Each light in the system will have its own LifxAPI object
-		private static Dictionary<string, LifxAPI> lights;
+        // Stores all the lights in our system
+        // Stores with light label as key and LifxAPI object as value
+        // Each light in the system will have its own LifxAPI object
+        private static Dictionary<string, LifxAPI> lights;
 
 		static void Main(string[] args)
 		{
@@ -56,7 +57,7 @@ namespace HomeAlive
 			//Console.WriteLine("Execute one of the following gestures: closedFist->oneFinger, twoFingers, threeFingers, fourFingers, fiveFingers\npress 'ctrl+c' to exit");
 			PrintConfigInfo();
 			// One can optionally pass the hostname/IP address where the gestures service is hosted
-			var gesturesServiceHostName = !args.Any() ? "localhost" : args[0];
+			gesturesServiceHostName = !args.Any() ? "localhost" : args[0];
 
 			//
 			// Main Program Loop
@@ -152,27 +153,36 @@ namespace HomeAlive
 		private static void ConfigRoutine()
 		{
 			lightAPIs = new Dictionary<string, LifxAPI>();
-			List<Light> lights = LifxAPI.GetLightStatus().Results;
-			Console.WriteLine(lights.Count + " light(s) found");
-			Console.WriteLine("Assigning lights to gestures...");
+            try
+            {
+                List<Light> lights = LifxAPI.GetLightStatus().Results;
+                Console.WriteLine(lights.Count + " light(s) found");
+                Console.WriteLine("Assigning lights to gestures...");
 
-			string[] configFileLines = new string[lights.Count];
-			for (int i = 0; i < lights.Count; i++)
-			{
-				Console.Write("{0}\t to command: ", lights[i].Label);
-				string assignedGesture = Console.ReadLine();
-				while(!IsValidGestureName(assignedGesture))
-				{
-					Console.Write("Invalid gesture assignment, please try again: ");
-					assignedGesture = Console.ReadLine();
-				}
-				configFileLines[i] = lights[i].Label + "\t" + assignedGesture;
+                string[] configFileLines = new string[lights.Count];
+                for (int i = 0; i < lights.Count; i++)
+                {
+                    Console.Write("{0}\t to command: ", lights[i].Label);
+                    string assignedGesture = Console.ReadLine();
+                    while (!IsValidGestureName(assignedGesture))
+                    {
+                        Console.Write("Invalid gesture assignment, please try again: ");
+                        assignedGesture = Console.ReadLine();
+                    }
+                    configFileLines[i] = lights[i].Label + "\t" + assignedGesture;
 
-			}
-			Console.WriteLine(dir + configFileName);
-			System.IO.File.WriteAllLines(dir + configFileName, configFileLines);
-			Console.WriteLine("Configuration Complete!");
-			LoadConfig();
+                }
+                Console.WriteLine(dir + configFileName);
+                System.IO.File.WriteAllLines(dir + configFileName, configFileLines);
+                Console.WriteLine("Configuration Complete!");
+                LoadConfig();
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
+                return;
+            }
+
 		}
 
 		private static void LoadConfig()
@@ -195,7 +205,7 @@ namespace HomeAlive
 
 		private static string SelectLight(string gestureName)
 		{
-
+            return "";
 		}
 
 		private static bool IsValidGestureName(string name)
